@@ -1,35 +1,18 @@
 {
   "name": "frida-java-bridge",
-  "version": "6.3.6",
-  "description": "Java runtime interop from Frida",
+  "version": "1.0.0",
   "main": "index.js",
-  "files": [
-    "/index.js",
-    "/lib/**/*.js",
-    "/lib/**/*.d.ts"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/frida/frida-java-bridge.git"
-  },
-  "license": "LGPL-2.0 WITH WxWindows-exception-3.1",
-  "bugs": {
-    "url": "https://github.com/frida/frida-java-bridge/issues"
-  },
-  "homepage": "https://github.com/frida/frida-java-bridge#readme",
   "scripts": {
-    "lint": "eslint lib",
-    "fix": "eslint --fix lib"
-  },
-  "dependencies": {
-    "jssha": "^3.1.2"
+    "build": "frida-compile index.js -o _agent.js -c",
+    "watch": "frida-compile index.js -o _agent.js -w"
   },
   "devDependencies": {
-    "eslint": "^8.33.0",
-    "eslint-config-semistandard": "^17.0.0",
-    "eslint-config-standard": "^17.0.0",
-    "eslint-plugin-import": "^2.27.5",
-    "eslint-plugin-n": "^15.6.1",
-    "eslint-plugin-promise": "^6.1.1"
+    "@types/frida-gum": "^17.2.0",
+    "@types/node": "^16.11.12",
+    "frida-compile": "^10.2.5"
+  },
+  "dependencies": {
+    "source-map": "^0.7.4",
+    "jssha": "^3.1.2"
   }
 }

@@ -1,40 +1,32 @@
-# frida-java-bridge
+### frida-java-bridge抹除特征版本
 
-Java runtime interop from Frida. This module is bundled with Frida and exposed
-through the global named `Java`.
+初始化模块
 
-## Running the test-suite
-
-### Dependencies
-
-- Android SDK Platform-Tools >= 27.0.1
-- Android NDK r21
-
-With environment configured accordingly:
-
-```sh
-$ export ANDROID_SDK_ROOT=~/Library/Android/Sdk
-$ export ANDROID_NDK_ROOT=/usr/local/opt/android-ndk-r21
+```
+npm install
 ```
 
-### Configuration
 
- - Go to `/test/config.mk` for editing the device configuration settings.
 
-### Run
+需要使用可以直接
 
-```sh
-$ make check
+```
+npm run build
 ```
 
-### Debug
 
-```sh
-$ make check-gdb
+
+然后执行
+
+```
+frida -H ip:port -f 包名 -l _agent.js
 ```
 
-### Auto-run tests on JavaScript change
 
-```sh
-$ make develop
+
+如果需要写代码，请在index.js下写代码，需要导出请使用
+
 ```
+global.函数名称 = 函数名称
+```
+
