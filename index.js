@@ -600,8 +600,10 @@ function initFactoryFromLoadedApk (factory, apk) {
 const runtime = new Runtime();
 Script.bindWeak(runtime, () => { runtime._dispose(); });
 
-Object.defineProperty(global, "Java", {
-    value: runtime
-})
+module.exports = runtime;
 
-console.log(Java);
+// Object.defineProperty(global, "Java", {
+//     value: runtime
+// })
+//
+// console.log(Java);
