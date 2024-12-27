@@ -604,3 +604,4 @@ Object.defineProperty(global, "Java", {
     value: runtime
 })
 
+console.log(Java);
