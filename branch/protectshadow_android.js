@@ -121,6 +121,7 @@ let trampolineAllocator = null;
 let textControl = null;
 const PROT_READ = 0x1;
 const PROT_WRITE = 0x2;
+const PROT_EXEC = 0x4;
 const MAP_PRIVATE = 0x02;
 const MAP_ANONYMOUS = 0x20;
 const PAGE_SIZE = 0x1000;
@@ -178,6 +179,11 @@ class TextControl {
     const memcpyPtr = Module.findExportByName(libc, 'memcpy');
     if (memcpyPtr !== null) {
       this._memcpy = new NativeFunction(memcpyPtr, 'pointer', ['pointer', 'pointer', 'ulong']);
+    }
+
+    const clearCachePtr = Module.findExportByName(libc, '__clear_cache');
+    if (clearCachePtr !== null) {
+      this._clearCache = new NativeFunction(clearCachePtr, 'void', ['pointer', 'pointer']);
     }
   }
 
@@ -275,11 +281,15 @@ class TextControl {
     // Phase 0: 保存原件
     this.saveOriginal(addr);
 
+    const r = Process.findRangeByAddress(addr);
     // Phase 1: 根据 useMemoryProtect 决定是否走 mprotect 逻辑
     if (this.useMemoryProtect) {
-      const r = Process.findRangeByAddress(addr);
       if (r) {
-        Memory.protect(r.base, r.size, 'rwx');
+        if (this._mprotect !== undefined) {
+          this._mprotect(r.base, r.size, PROT_READ | PROT_WRITE | PROT_EXEC);
+        } else {
+          Memory.protect(r.base, r.size, 'rwx');
+        }
       }
 
       callback();
@@ -287,14 +297,22 @@ class TextControl {
       Interceptor.flush();
 
       if (r) {
-        Memory.protect(r.base, r.size, 'r-x');
+        if (this._mprotect !== undefined) {
+          this._mprotect(r.base, r.size, PROT_READ | PROT_EXEC);
+        } else {
+          Memory.protect(r.base, r.size, 'r-x');
+        }
       }
     } else {
       callback();
       Interceptor.flush();
     }
 
-    // Phase 2: 根据 useTextShadowProtect 决定是否启用 text shadow 保护
+    // Phase 2: 刷新指令缓存并启用 text shadow 保护
+    if (r && this._clearCache !== undefined) {
+      this._clearCache(r.base, r.base.add(r.size));
+    }
+
     if (this.useTextShadowProtect) {
       return this.protect(addr);
     }
@@ -2027,7 +2045,7 @@ function instrumentArtQuickEntrypoints (vm) {
   ];
 
   quickEntrypoints.forEach(entrypoint => {
-    Memory.protect(entrypoint, 32, 'rwx');
+    // Memory.protect(entrypoint, 32, 'rwx');
 
     const interceptor = new ArtQuickCodeInterceptor(entrypoint);
     interceptor.activate(vm);
@@ -2061,6 +2079,7 @@ function ensureArtKnowsHowToHandleReplacementMethods (vm) {
     return;
   }
   taughtArtAboutReplacementMethods = true;
+  const tc = getTextControl();
 
   if (!maybeInstrumentGetOatQuickMethodHeaderInlineCopies()) {
     const { getOatQuickMethodHeaderImpl } = artController;
@@ -2069,7 +2088,9 @@ function ensureArtKnowsHowToHandleReplacementMethods (vm) {
     }
 
     try {
-      Interceptor.replace(getOatQuickMethodHeaderImpl, artController.hooks.ArtMethod.getOatQuickMethodHeader);
+      tc.writeTextProtect(getOatQuickMethodHeaderImpl, ()=>{
+        Interceptor.replace(getOatQuickMethodHeaderImpl, artController.hooks.ArtMethod.getOatQuickMethodHeader);
+      })
     } catch (e) {
       /*
        * Already replaced by another script. For now we don't support replacing methods from multiple scripts,
@@ -2091,7 +2112,6 @@ function ensureArtKnowsHowToHandleReplacementMethods (vm) {
     : () => false;
   const kCollectorTypeCMC = 3;
 
-  const tc = getTextControl();
   if (mayUseCollector(kCollectorTypeCMC)) {
     const target = Module.getExportByName('libart.so', '_ZN3art6Thread15RunFlipFunctionEPS0_b');
     tc.writeTextProtect(target, () => {
@@ -2483,12 +2503,15 @@ function instrumentGetOatQuickMethodHeaderInlinedCopyArm64 ({ address, size, val
 
   inlineHooks.push(new InlineHook(address, size, trampoline));
 
-  Memory.patchCode(address, size, code => {
-    const writer = new Arm64Writer(code, { pc: address });
-    writer.putLdrRegAddress(scratchReg, trampoline);
-    writer.putBrReg(scratchReg);
-    writer.flush();
-  });
+  var tc = getTextControl();
+  tc.writeTextProtect(address, ()=>{
+    Memory.patchCode(address, size, code => {
+      const writer = new Arm64Writer(code, { pc: address });
+      writer.putLdrRegAddress(scratchReg, trampoline);
+      writer.putBrReg(scratchReg);
+      writer.flush();
+    });
+  })
 }
 
 function makeMethodMangler (methodId) {
@@ -3390,19 +3413,22 @@ function writeArtQuickCodePrologueArm (target, trampoline, redirectSize) {
 }
 
 function writeArtQuickCodePrologueArm64 (target, trampoline, redirectSize) {
-  Memory.patchCode(target, 16, code => {
-    const writer = new Arm64Writer(code, { pc: target });
+  var tc = getTextControl();
+  tc.writeTextProtect(target, ()=>{
+    Memory.patchCode(target, 16, code => {
+      const writer = new Arm64Writer(code, { pc: target });
 
-    if (redirectSize === 16) {
-      writer.putLdrRegAddress('x16', trampoline);
-    } else {
-      writer.putAdrpRegAddress('x16', trampoline);
-    }
+      if (redirectSize === 16) {
+        writer.putLdrRegAddress('x16', trampoline);
+      } else {
+        writer.putAdrpRegAddress('x16', trampoline);
+      }
 
-    writer.putBrReg('x16');
+      writer.putBrReg('x16');
 
-    writer.flush();
-  });
+      writer.flush();
+    });
+  })
 }
 
 const artQuickCodeHookRedirectSize = {
@@ -3953,11 +3979,13 @@ class JdwpSession {
       });
     });
 
-    Interceptor.replace(receiveClientFdImpl, new NativeCallback(function (state) {
-      Interceptor.revert(receiveClientFdImpl);
+    tc.writeTextProtect(receiveClientFdImpl, ()=>{
+      Interceptor.replace(receiveClientFdImpl, new NativeCallback(function (state) {
+        Interceptor.revert(receiveClientFdImpl);
 
-      return clientPair[1];
-    }, 'int', ['pointer']));
+        return clientPair[1];
+      }, 'int', ['pointer']));
+    })
 
     Interceptor.flush();
 
