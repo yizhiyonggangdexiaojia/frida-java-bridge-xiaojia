@@ -3,15 +3,19 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "build": "frida-compile index.js -o _agent.js -c",
-    "watch": "frida-compile index.js -o _agent.js -w"
+    "build": "rollup -c",
+    "watch": "rollup -c -w"
   },
   "devDependencies": {
+    "@frida/rollup-plugin-node-polyfills": "^4.0.1",
+    "@rollup/plugin-commonjs": "^29.0.2",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
     "@types/node": "^16.11.12",
-    "frida-compile": "^10.2.5"
+    "rollup": "^4.60.3"
   },
   "dependencies": {
-    "source-map": "^0.7.4",
-    "jssha": "^3.1.2"
+    "jssha": "^3.1.2",
+    "source-map": "^0.7.4"
   }
 }
