@@ -604,6 +604,6 @@ Object.defineProperty(global, "Java", {
     value: runtime
 })
 
-console.log(runtime.available)
+// console.log(Java.available)
 
 export default runtime;
