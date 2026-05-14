@@ -1,37 +1,15 @@
 {
   "name": "frida-java-bridge",
   "version": "7.0.13",
-  "description": "Java runtime interop from Frida",
-  "keywords": [
-    "frida-gum",
-    "frida-gum-bridge"
-  ],
   "type": "module",
   "main": "index.js",
-  "files": [
-    "/index.js",
-    "/index.d.ts",
-    "/lib/**/*.js",
-    "/lib/**/*.d.ts"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/frida/frida-java-bridge.git"
-  },
-  "license": "LGPL-2.0 WITH WxWindows-exception-3.1",
-  "bugs": {
-    "url": "https://github.com/frida/frida-java-bridge/issues"
-  },
-  "homepage": "https://github.com/frida/frida-java-bridge#readme",
   "scripts": {
-    "lint": "eslint lib",
-    "fix": "eslint --fix lib"
+    "build": "rollup -c"
   },
   "devDependencies": {
-    "@types/frida-gum": "^18.7.2",
-    "frida-compile": "^16.4.1",
-    "@eslint/js": "^9.20.0",
-    "eslint": "^9.20.0",
-    "neostandard": "^0.12.1"
+    "@frida/rollup-plugin-node-polyfills": "^4.0.1",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^1.0.0",
+    "rollup": "^4.60.3"
   }
 }
